@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include <algorithm>
+#include <errno.h>
 
 bool senddata(int sock, void *buf, int buflen)
 {
@@ -17,18 +18,16 @@ bool senddata(int sock, void *buf, int buflen)
 
     while (buflen > 0)
     {
-        printf("pre send\n");
         int num = send(sock, pbuf, buflen, 0);
-        printf("after send\n");
-        /*if (num == SOCKET_ERROR)
+        if (num == -1)
         {
-            if (WSAGetLastError() == WSAEWOULDBLOCK)
+            if (errno == EWOULDBLOCK)
             {
                 // optional: use select() to check for timeout to fail the send
                 continue;
             }
             return false;
-        }*/
+        }
 
         pbuf += num;
         buflen -= num;
@@ -76,17 +75,31 @@ int main(int argc, char** argv)
     unsigned int size;
     int nfd, on = 1;
     FILE *filehandle = fopen("nicki.jpeg", "rb");
-   // char buf[6];
+    if(filehandle == NULL){
+        perror("Failed to open file");
+        return 1;
+    }
 
     srv.sin_family = AF_INET;
     srv.sin_port = htons(1234);
     srv.sin_addr.s_addr = INADDR_ANY;
 
     int fd = socket(PF_INET, SOCK_STREAM, 0);
+    if(fd == -1){
+        perror("Failed to create socket");
+        return 1;
+    }
 
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char*) &on, sizeof(on));
-    bind(fd, (struct sockaddr*)&srv, sizeof(srv));
-    listen(fd, 5);
+
+    if(bind(fd, (struct sockaddr*)&srv, sizeof(srv)) == -1){
+        perror("Failed to bind");
+        return 1;
+    }
+    if(listen(fd, 5) == -1){
+        perror("Failed to listen");
+        return 1;
+    }
 
     while(1)
     {
